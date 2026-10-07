@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1565c0">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Bottle Inventory</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f4f6f8;color:#17202a}
+header{background:#1565c0;color:white;padding:18px 16px;position:sticky;top:0;z-index:5}
+h1{font-size:22px;margin:0}.sub{opacity:.85;font-size:13px;margin-top:4px}
+main{max-width:700px;margin:auto;padding:14px}.card{background:white;border-radius:16px;padding:14px;margin-bottom:14px;box-shadow:0 2px 10px #0001}
+button{border:0;border-radius:12px;padding:12px 16px;font-size:16px;font-weight:600;cursor:pointer}
+.primary{background:#1565c0;color:white;width:100%}.secondary{background:#e7eef8;color:#12549d}
+.danger{background:#fee;color:#b00020}.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
+#reader{width:100%;overflow:hidden;border-radius:12px;background:#111;display:none;margin-top:12px}
+.item{display:flex;align-items:center;gap:10px;border-top:1px solid #eee;padding:12px 0}
+.item:first-child{border-top:0}.info{flex:1}.name{font-weight:700}.code{font-size:12px;color:#68727d;word-break:break-all}.qty{font-size:20px;font-weight:800;min-width:38px;text-align:center}
+.small{padding:7px 11px;font-size:14px}.empty{text-align:center;color:#68727d;padding:20px}.status{font-size:14px;margin-top:10px}
+.total{font-size:30px;font-weight:800}
+input{width:100%;padding:12px;border:1px solid #ccd3da;border-radius:10px;font-size:16px}
+</style>
+<script src="https://unpkg.com/html5-qrcode" defer></script>
+</head>
+<body>
+<header><h1>🍾 Bottle Inventory</h1><div class="sub">Scan • Count • Track</div></header>
+<main>
+<section class="card">
+  <div class="row">
+    <div><div class="sub">Total bottles</div><div class="total" id="total">0</div></div>
+    <button class="secondary" id="scanBtn">📷 Scan</button>
+  </div>
+  <div id="reader"></div>
+  <div class="status" id="status">Ready to scan a bottle barcode.</div>
+</section>
+
+<section class="card">
+  <div class="row">
+    <input id="search" placeholder="Search inventory…">
+    <button class="danger" id="clearBtn">Clear</button>
+  </div>
+</section>
+
+<section class="card">
+  <h2 style="margin-top:0">Inventory</h2>
+  <div id="list"></div>
+</section>
+
+<section class="card">
+  <h3 style="margin-top:0">How to use</h3>
+  <ol>
+    <li>Tap <b>Scan</b>.</li>
+    <li>Allow camera access.</li>
+    <li>Point at a bottle barcode.</li>
+    <li>Each new scan adds one bottle.</li>
+    <li>Use + or − to correct counts.</li>
+  </ol>
+</section>
+</main>
+<script>
+const KEY="bottleInventory.v1";
+let inventory=JSON.parse(localStorage.getItem(KEY)||"{}");
+let scanner=null, scanning=false;
+
+const $=id=>document.getElementById(id);
+function save(){localStorage.setItem(KEY,JSON.stringify(inventory));render()}
+function total(){return Object.values(inventory).reduce((s,x)=>s+x.qty,0)}
+function render(){
+  $("total").textContent=total();
+  const q=$("search").value.trim().toLowerCase();
+  const vals=Object.values(inventory).filter(x=>!q || x.name.toLowerCase().includes(q)||x.code.toLowerCase().includes(q));
+  $("list").innerHTML=vals.length?vals.map(x=>`
+    <div class="item">
+      <div class="info"><div class="name">${esc(x.name)}</div><div class="code">${esc(x.code)}</div></div>
+      <button class="secondary small" onclick="change('${key(x.code)}',-1)">−</button>
+      <div class="qty">${x.qty}</div>
+      <button class="secondary small" onclick="change('${key(x.code)}',1)">+</button>
+    </div>`).join(""):`<div class="empty">No bottles yet. Tap Scan to start.</div>`;
+}
+function key(s){return encodeURIComponent(s)}
+function change(k,d){let code=decodeURIComponent(k); if(!inventory[code])return; inventory[code].qty=Math.max(0,inventory[code].qty+d); if(!inventory[code].qty)delete inventory[code]; save()}
+function esc(s){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+
+async function startScan(){
+  if(scanning){stopScan();return}
+  if(!window.Html5Qrcode){$("status").textContent="Scanner is still loading. Try again in a moment.";return}
+  $("reader").style.display="block"; $("scanBtn").textContent="⏹ Stop"; scanning=true;
+  scanner=new Html5Qrcode("reader");
+  try{
+    await scanner.start({facingMode:"environment"},{fps:10,qrbox:{width:250,height:120}},
+      code=>add(code),()=>{});
+    $("status").textContent="Camera active — point at a barcode.";
+  }catch(e){
+    $("status").textContent="Camera could not start. Make sure Chrome has camera permission and the page is HTTPS.";
+    stopScan();
+  }
+}
+async function stopScan(){
+  if(scanner){try{await scanner.stop()}catch(e){} try{scanner.clear()}catch(e){}}
+  scanner=null;scanning=false;$("reader").style.display="none";$("scanBtn").textContent="📷 Scan";
+}
+let last="",lastAt=0;
+function add(code){
+  const now=Date.now(); if(code===last&&now-lastAt<1800)return; last=code;lastAt=now;
+  if(!inventory[code])inventory[code]={code,name:"Bottle "+code,qty:0};
+  inventory[code].qty++;
+  $("status").textContent="Added 1 bottle: "+code;
+  save();
+}
+$("scanBtn").onclick=startScan;
+$("search").oninput=render;
+$("clearBtn").onclick=()=>{if(confirm("Clear all inventory?")){inventory={};save();$("status").textContent="Inventory cleared."}};
+render();
+</script>
+</body></html>
