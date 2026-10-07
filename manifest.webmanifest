@@ -1,9 +1,1 @@
-{
-  "name":"Bottle Inventory",
-  "short_name":"Inventory",
-  "start_url":".",
-  "display":"standalone",
-  "background_color":"#f4f6f8",
-  "theme_color":"#1565c0",
-  "description":"Camera barcode inventory tracker for bottles"
-}
+{"name":"Bottle Inventory","short_name":"Bottle Inventory","start_url":".","display":"standalone","background_color":"#f4f6f8","theme_color":"#1769c2","icons":[]}
