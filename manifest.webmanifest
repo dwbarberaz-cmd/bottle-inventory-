@@ -1,1 +1,9 @@
-{"name":"Bottle Inventory","short_name":"Bottle Inventory","start_url":".","display":"standalone","background_color":"#f4f6f8","theme_color":"#1769c2","icons":[]}
+{
+  "name": "Bottle Inventory",
+  "short_name": "Bottle Inventory",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#101114",
+  "theme_color": "#171717",
+  "description": "Track bottles with barcode scanning and label text recognition."
+}
